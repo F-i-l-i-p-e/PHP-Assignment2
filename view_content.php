@@ -1,9 +1,6 @@
 <?php
 session_start();
-if (!isset($_SESSION['username'])) {
-    header("Location: login.php");
-    exit;
-}
+$loggedIn = isset($_SESSION['username']);
 
 $servername = "localhost";
 $username = "root";
@@ -19,11 +16,7 @@ if ($conn->connect_error) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    if (isset($_POST['delete'])) {
-        $id = $_POST['id'];
-        $sql = "DELETE FROM bands WHERE id = '$id'";
-        $conn->query($sql);
-    } elseif (isset($_POST['add'])) {
+    if (isset($_POST['add']) && $loggedIn) {
         $band_name = $_POST['band_name'];
         $description = $_POST['description'];
 
@@ -39,13 +32,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         } else {
             echo "Error uploading the image.";
         }
-    } elseif (isset($_POST['edit'])) {
+    } elseif (isset($_POST['edit']) && $loggedIn) {
         $id = $_POST['id'];
         $band_name = $_POST['band_name'];
         $description = $_POST['description'];
         $photo = $_POST['photo'];
 
         $sql = "UPDATE bands SET band_name='$band_name', description='$description', photo='$photo' WHERE id='$id'";
+        $conn->query($sql);
+    } elseif (isset($_POST['delete']) && $loggedIn) {
+        $id = $_POST['id'];
+        $sql = "DELETE FROM bands WHERE id = '$id'";
         $conn->query($sql);
     }
 }
@@ -74,64 +71,73 @@ if (!$result) {
             document.getElementById("edit_photo").value = photo;
         }
     </script>
-<body>
+    <body>
     <nav>
-        <a href="login.php">Login</a>
-        <a href="register.php">Register</a>
+        <?php
+        if ($loggedIn) {
+            echo '<a href="user_profile.php">Profile</a>';
+            echo '<a href="user_profile.php?logout=true">Logout</a>';
+        } else {
+            echo '<a href="login.php">Login</a>';
+            echo '<a href="register.php">Register</a>';
+        }
+        ?>
         <a href="view_content.php">View Content</a>
     </nav>
-
     <h1>View Content</h1>
 
-    <form action="view_content.php" method="POST" enctype="multipart/form-data">
-        <label for="add_contant" class=addcontent>ADD CONTENT</label>
-        <label for="band_name">Band Name:</label>
-        <input type="text" name="band_name" id="band_name" required>
-        <br>
-        <label for="description">Description:</label>
-        <textarea name="description" id="description" required></textarea>
-        <br>
-        <label for="photo">Photo:</label>
-        <input type="file" name="photo" id="photo" required>
-        <br>
-        <br>
-        <input type="submit" name="add" value="Add Band">
-    </form>
+<?php if ($loggedIn) { ?>
+<form action="view_content.php" method="POST" enctype="multipart/form-data">
+    <label for="add_contant" class=addcontent>ADD CONTENT</label>
+    <label for="band_name">Band Name:</label>
+    <input type="text" name="band_name" id="band_name" required>
+    <br>
+    <label for="description">Description:</label>
+    <textarea name="description" id="description" required></textarea>
+    <br>
+    <label for="photo">Photo:</label>
+    <input type="file" name="photo" id="photo" required>
+    <br>
+    <br>
+    <input type="submit" name="add" value="Add Band">
+</form>
 
-    <form id="editForm" action="view_content.php" method="POST" style="display: none;">
-        <input type="hidden" name="id" id="edit_id">
-        <label for="edit_band_name">Band Name:</label>
-        <input type="text" name="band_name" id="edit_band_name" required>
-        <br>
-        <label for="edit_description">Description:</label>
-        <textarea name="description" id="edit_description" required></textarea>
-        <br>
-        <label for="edit_photo">Photo URL:</label>
-        <input type="text" name="photo" id="edit_photo" required>
-        <br>
-        <br>
-        <input type="submit" name="edit" value="Edit Band">
-    </form>
+<form id="editForm" action="view_content.php" method="POST" style="display: none;">
+    <input type="hidden" name="id" id="edit_id">
+    <label for="edit_band_name">Band Name:</label>
+    <input type="text" name="band_name" id="edit_band_name" required>
+    <br>
+    <label for="edit_description">Description:</label>
+    <textarea name="description" id="edit_description" required></textarea>
+    <br>
+    <label for="edit_photo">Photo URL:</label>
+    <input type="text" name="photo" id="edit_photo" required>
+    <br>
+    <br>
+    <input type="submit" name="edit" value="Edit Band">
+</form>
+<?php } ?>
 
-    <?php
-    if ($result->num_rows > 0) {
-        while ($row = $result->fetch_assoc()) {
-            echo "<div>";
-            echo "<h2>" . $row['band_name'] . "</h2>";
-            echo "<p>" . $row['description'] . "</p>";
-            echo "<img src='" . $row['photo'] . "' alt='" . $row['band_name'] . "' width='600'>";
+<?php
+if ($result->num_rows > 0) {
+    while ($row = $result->fetch_assoc()) {
+        echo "<div>";
+        echo "<h2>" . $row['band_name'] . "</h2>";
+        echo "<p>" . $row['description'] . "</p>";
+        echo "<img src='" . $row['photo'] . "' alt='" . $row['band_name'] . "' width='600'>";
+        if ($loggedIn) {
             echo "<button onclick=\"editBand('" . $row['id'] . "','" . addslashes($row['band_name']) . "','" . addslashes($row['description']) . "','" . $row['photo'] . "')\">Edit</button>";
             echo "<form action='view_content.php' method='POST'>";
             echo "<input type='hidden' name='id' value='" . $row['id'] . "'>";
             echo "<input type='submit' name='delete' value='Delete'>";
             echo "</form>";
-            echo "</div>";
         }
-    } else {
-        echo "No bands found.";
+        echo "</div>";
     }
-    $conn->close();
-    ?>
-
+} else {
+    echo "No bands found.";
+}
+$conn->close();
+?>
 </body>
 </html>
